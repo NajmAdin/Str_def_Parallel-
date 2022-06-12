@@ -15,7 +15,7 @@ void Hello( int rank,int comsz)
 	int my_thread = omp_get_thread_num();
 	
 
-	printf("Hello Najm from thread %d with rank %d of %d\n", my_thread,rank,comsz );
+	printf("HI from thread %d with rank %d of %d\n", my_thread,rank,comsz );
 }
 
 int main(int argc, char *argv[])
