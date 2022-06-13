@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 
 	// Beginning of parallel region
 	char greeting[MAX_STRING]; /* String storing message */
-	int comm_sz=5;			   /* Number of processes    */
+	int comm_sz;			   /* Number of processes    */
 	int my_rank;			   /* My process rank        */
 
 	/* Start up MPI */
