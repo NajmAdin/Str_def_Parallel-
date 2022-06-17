@@ -25,7 +25,7 @@ struct string
 struct string data[100000];
 struct string quary[100];
 void Gen(){
-	for(int i=0;i<100;i++){
+	for(int i=0;i<100000;i++){
        char s[MAX_STRING];
 	   int x;
 	   x =((rand()%14)+2);
@@ -35,7 +35,7 @@ void Gen(){
         }   
         data[i].val=s;
     }
-	for(int i=0;i<10;i++){
+	for(int i=0;i<100;i++){
        char s[MAX_STRING];
 	   int x;
 	   x =((rand()%14)+2);
