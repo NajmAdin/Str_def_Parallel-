@@ -2,6 +2,7 @@
 // using C language
 
 // OpenMP header
+#define _CRT_SECURE_NO_WARNINGS
 #include <omp.h>
 #include <string.h>
 #include <stdio.h>
@@ -9,21 +10,21 @@
 #include <mpi/mpi.h> /* For MPI functions, etc */
 #pragma comment(lib, "msmpi.lib")
 const int MAX_STRING = 16;
-
+/*
 void Hello(int rank, int comsz)
 {
 	int my_thread = omp_get_thread_num();
 
 	printf("HI from thread %d with rank %d of %d\n", my_thread, rank, comsz);
-}
+}*/
 
 struct string
 {
 	char *val;
-};
+} string;
 
 struct string data[131072];
-struct string quary[128];
+char quary[128][16];
 void Gen()
 {
 	for (int i = 0; i < 131072; i++)
@@ -36,25 +37,25 @@ void Gen()
 			unsigned int ch = (rand() * rand());
 			s[j] = (char)((ch % 26) + 'a');
 		}
+		data[i].val = (char *)malloc(sizeof(char) * 16);
 		data[i].val = s;
 	}
 	for (int i = 0; i < 128; i++)
 	{
-		char s[MAX_STRING];
+
 		int x;
 		x = ((rand() % 14) + 2);
 		for (int j = 0; j < x; j++)
 		{
 			unsigned int ch = (rand() * rand());
-			s[j] = (char)((ch % 26) + 'a');
+			quary[i][j] = (char)((ch % 26) + 'a');
 		}
-		quary[i].val = s;
 	}
 }
 
 int main(int argc, char *argv[])
 {
-	Gen();
+
 	// Beginning of parallel region
 
 	int comm_sz; /* Number of processes    */
@@ -85,8 +86,7 @@ int main(int argc, char *argv[])
 
 	// Create the new communicators
 	MPI_Comm local_comm;
-    MPI_Comm Super_comm;
-
+	
 	if (my_rank % 4 == 0)
 	{
 		int group_a_ranks[4] = {0, 4, 8, 12};
@@ -116,22 +116,68 @@ int main(int argc, char *argv[])
 		MPI_Comm_create(MPI_COMM_WORLD, group_d, &local_comm);
 	}
 
-	if(my_rank<4){
-		int group_s_ranks[4] = {0, 1, 2,3};
+/*	if (my_rank < 4)
+	{
+		int group_s_ranks[4] = {0, 1, 2, 3};
 		MPI_Group group_s;
 		MPI_Group_incl(world_group, 4, group_s_ranks, &group_s);
-		MPI_Comm_create(MPI_COMM_WORLD, group_s, &local_comm);
+		MPI_Comm_create(MPI_COMM_WORLD, group_s, &Super_comm);
 	}
+*/
+	// call gen data & quary
 
-
-
-
-
-#pragma omp parallel num_threads(2)
+	if (my_rank == 0)
 	{
-		Hello(my_rank, comm_sz);
+		Gen();
+		for (int i = 0; i < 128; i++)
+		{
+			printf("%s\n", quary[i]);
+		}
+		printf("////////////////////////\n");
 	}
 
+	// specify data  8
+	MPI_Datatype MPI_String;
+	MPI_Type_create_resized(MPI_CHAR, 0, sizeof(string), &MPI_String);
+	MPI_Type_commit(&MPI_String);
+	char my_quary[32][16];
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (my_rank == 0)
+	{
+		for (int i = 32; i < 128; i++)
+		{
+			int to = 1;
+			if (i >= 64 && i < 96)
+				to = 2;
+			if (i >= 96 && i < 128)
+				to = 3;
+			MPI_Ssend(quary[i], 16, MPI_CHAR, to, 0, local_comm);
+		}
+		for(int i=0;i<32;i++){
+			*my_quary[i]=*quary[i];
+		}
+	}
+	else if (my_rank == 4 || my_rank == 12 || my_rank == 8)
+	{
+		for (int i = 0; i < 32; i++)
+		{
+			MPI_Recv(my_quary[i], 16, MPI_CHAR, 0, 0, local_comm, MPI_STATUS_IGNORE);
+		}
+	}
+	if (my_rank == 0 ||my_rank == 4 || my_rank == 12 || my_rank == 8)
+	{
+		for (int i = 0; i < 32; i++)
+		{
+			printf("my idx = %d my val = %s my rank = %d\n", i, my_quary[i], my_rank);
+		}
+	}
+
+	/*
+	#pragma omp parallel num_threads(2)
+		{
+			//Hello(my_rank, comm_sz);
+		}
+	*/
 	/* Shut down MPI */
 	MPI_Finalize();
 
