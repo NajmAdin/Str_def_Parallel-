@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
 
 	// Create the new communicators
 	MPI_Comm local_comm;
+	int local_rank;
 	
 	if (my_rank % 4 == 0)
 	{
@@ -88,6 +89,7 @@ int main(int argc, char *argv[])
 		MPI_Group group_a;
 		MPI_Group_incl(world_group, 4, group_a_ranks, &group_a);
 		MPI_Comm_create(MPI_COMM_WORLD, group_a, &local_comm);
+		MPI_Comm_rank(local_comm, &local_rank);
 	}
 	else if (my_rank % 4 == 1)
 	{
@@ -95,6 +97,7 @@ int main(int argc, char *argv[])
 		MPI_Group group_b;
 		MPI_Group_incl(world_group, 4, group_b_ranks, &group_b);
 		MPI_Comm_create(MPI_COMM_WORLD, group_b, &local_comm);
+		MPI_Comm_rank(local_comm, &local_rank);
 	}
 	else if (my_rank % 4 == 2)
 	{
@@ -102,6 +105,7 @@ int main(int argc, char *argv[])
 		MPI_Group group_c;
 		MPI_Group_incl(world_group, 4, group_c_ranks, &group_c);
 		MPI_Comm_create(MPI_COMM_WORLD, group_c, &local_comm);
+		MPI_Comm_rank(local_comm, &local_rank);
 	}
 	else if (my_rank % 4 == 3)
 	{
@@ -109,6 +113,7 @@ int main(int argc, char *argv[])
 		MPI_Group group_d;
 		MPI_Group_incl(world_group, 4, group_d_ranks, &group_d);
 		MPI_Comm_create(MPI_COMM_WORLD, group_d, &local_comm);
+		MPI_Comm_rank(local_comm, &local_rank);
 	}
 
 /*	if (my_rank < 4)
@@ -134,6 +139,9 @@ int main(int argc, char *argv[])
 	// specify data  32
 	
 	char my_quary[32][16];
+	char my_data[32768][16];
+
+	//send quary
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (my_rank == 0)
 	{
@@ -159,7 +167,31 @@ int main(int argc, char *argv[])
 			MPI_Recv(my_quary[i], 16, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 	}
-	if (my_rank == 0 ||my_rank == 1 || my_rank == 2 || my_rank == 3)
+
+
+	//MPI_Barrier(local_comm);
+	if (local_rank == 0)
+	{
+		for (int i = 0; i < 32; i++)
+		{
+			MPI_Ssend(my_quary[i], 16, MPI_CHAR, 1, 0, local_comm);
+			MPI_Ssend(my_quary[i], 16, MPI_CHAR, 2, 0, local_comm);
+			MPI_Ssend(my_quary[i], 16, MPI_CHAR, 3, 0, local_comm);
+			
+		}
+		
+	}
+	else {
+		for (int i = 0; i < 32; i++)
+		{
+			MPI_Recv(my_quary[i], 16, MPI_CHAR, 0, 0, local_comm, MPI_STATUS_IGNORE);
+		}
+	}
+	
+
+
+
+	if (local_rank == 3 )
 	{
 		for (int i = 0; i < 32; i++)
 		{
