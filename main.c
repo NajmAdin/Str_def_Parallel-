@@ -18,27 +18,22 @@ void Hello(int rank, int comsz)
 	printf("HI from thread %d with rank %d of %d\n", my_thread, rank, comsz);
 }*/
 
-struct string
-{
-	char *val;
-} string;
 
-struct string data[131072];
+
+char data[131072][16];
 char quary[128][16];
 void Gen()
 {
 	for (int i = 0; i < 131072; i++)
 	{
-		char s[MAX_STRING];
 		int x;
 		x = ((rand() % 14) + 2);
 		for (int j = 0; j < x; j++)
 		{
 			unsigned int ch = (rand() * rand());
-			s[j] = (char)((ch % 26) + 'a');
+			data[i][j] = (char)((ch % 26) + 'a');
 		}
-		data[i].val = (char *)malloc(sizeof(char) * 16);
-		data[i].val = s;
+		 
 	}
 	for (int i = 0; i < 128; i++)
 	{
@@ -131,15 +126,13 @@ int main(int argc, char *argv[])
 		Gen();
 		for (int i = 0; i < 128; i++)
 		{
-			printf("%s\n", quary[i]);
+			printf("%d- %s\n", i, quary[i]);
 		}
 		printf("////////////////////////\n");
 	}
 
-	// specify data  8
-	MPI_Datatype MPI_String;
-	MPI_Type_create_resized(MPI_CHAR, 0, sizeof(string), &MPI_String);
-	MPI_Type_commit(&MPI_String);
+	// specify data  32
+	
 	char my_quary[32][16];
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (my_rank == 0)
@@ -151,20 +144,22 @@ int main(int argc, char *argv[])
 				to = 2;
 			if (i >= 96 && i < 128)
 				to = 3;
-			MPI_Ssend(quary[i], 16, MPI_CHAR, to, 0, local_comm);
+			MPI_Ssend(quary[i], 16, MPI_CHAR, to, 0, MPI_COMM_WORLD);
 		}
 		for(int i=0;i<32;i++){
-			*my_quary[i]=*quary[i];
+			for(int j=0;j<16;j++){
+				my_quary[i][j]=quary[i][j];
+			}
 		}
 	}
-	else if (my_rank == 4 || my_rank == 12 || my_rank == 8)
+	else if (my_rank == 1 || my_rank == 2 || my_rank == 3)
 	{
 		for (int i = 0; i < 32; i++)
 		{
-			MPI_Recv(my_quary[i], 16, MPI_CHAR, 0, 0, local_comm, MPI_STATUS_IGNORE);
+			MPI_Recv(my_quary[i], 16, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 	}
-	if (my_rank == 0 ||my_rank == 4 || my_rank == 12 || my_rank == 8)
+	if (my_rank == 0 ||my_rank == 1 || my_rank == 2 || my_rank == 3)
 	{
 		for (int i = 0; i < 32; i++)
 		{
