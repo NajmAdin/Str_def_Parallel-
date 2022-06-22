@@ -10,15 +10,59 @@
 #include <mpi/mpi.h> /* For MPI functions, etc */
 #pragma comment(lib, "msmpi.lib")
 const int MAX_STRING = 16;
-/*
-void Hello(int rank, int comsz)
+
+static int distance(char *word1, int len1, char *word2, int len2)
 {
-	int my_thread = omp_get_thread_num();
+	int matrix[len1 + 1][len2 + 1];
+	int i;
+	for (i = 0; i <= len1; i++)
+	{
+		matrix[i][0] = i;
+	}
+	for (i = 0; i <= len2; i++)
+	{
+		matrix[0][i] = i;
+	}
+	for (i = 1; i <= len1; i++)
+	{
+		int j;
+		char c1;
 
-	printf("HI from thread %d with rank %d of %d\n", my_thread, rank, comsz);
-}*/
+		c1 = word1[i - 1];
+		for (j = 1; j <= len2; j++)
+		{
+			char c2;
 
+			c2 = word2[j - 1];
+			if (c1 == c2)
+			{
+				matrix[i][j] = matrix[i - 1][j - 1];
+			}
+			else
+			{
+				int delete;
+				int insert;
+				int substitute;
+				int minimum;
 
+				delete = matrix[i - 1][j] + 1;
+				insert = matrix[i][j - 1] + 1;
+				substitute = matrix[i - 1][j - 1] + 1;
+				minimum = delete;
+				if (insert < minimum)
+				{
+					minimum = insert;
+				}
+				if (substitute < minimum)
+				{
+					minimum = substitute;
+				}
+				matrix[i][j] = minimum;
+			}
+		}
+	}
+	return matrix[len1][len2];
+}
 
 char data[131072][16];
 char quary[128][16];
@@ -26,21 +70,17 @@ void Gen()
 {
 	for (int i = 0; i < 131072; i++)
 	{
-		int x;
-		x = ((rand() % 14) + 2);
-		for (int j = 0; j < x; j++)
+
+		for (int j = 0; j < 16; j++)
 		{
 			unsigned int ch = (rand() * rand());
 			data[i][j] = (char)((ch % 26) + 'a');
 		}
-		 
 	}
 	for (int i = 0; i < 128; i++)
 	{
 
-		int x;
-		x = ((rand() % 14) + 2);
-		for (int j = 0; j < x; j++)
+		for (int j = 0; j < 16; j++)
 		{
 			unsigned int ch = (rand() * rand());
 			quary[i][j] = (char)((ch % 26) + 'a');
@@ -82,7 +122,7 @@ int main(int argc, char *argv[])
 	// Create the new communicators
 	MPI_Comm local_comm;
 	int local_rank;
-	
+
 	if (my_rank % 4 == 0)
 	{
 		int group_a_ranks[4] = {0, 4, 8, 12};
@@ -116,32 +156,32 @@ int main(int argc, char *argv[])
 		MPI_Comm_rank(local_comm, &local_rank);
 	}
 
-/*	if (my_rank < 4)
-	{
-		int group_s_ranks[4] = {0, 1, 2, 3};
-		MPI_Group group_s;
-		MPI_Group_incl(world_group, 4, group_s_ranks, &group_s);
-		MPI_Comm_create(MPI_COMM_WORLD, group_s, &Super_comm);
-	}
-*/
+	/*	if (my_rank < 4)
+		{
+			int group_s_ranks[4] = {0, 1, 2, 3};
+			MPI_Group group_s;
+			MPI_Group_incl(world_group, 4, group_s_ranks, &group_s);
+			MPI_Comm_create(MPI_COMM_WORLD, group_s, &Super_comm);
+		}
+	*/
 	// call gen data & quary
 
 	if (my_rank == 0)
 	{
 		Gen();
-	/*	for (int i = 0; i < 128; i++)
-		{
-			printf("%d- %s\n", i, quary[i]);
-		}*/
+		/*	for (int i = 0; i < 128; i++)
+			{
+				printf("%d- %s\n", i, quary[i]);
+			}*/
 		printf("////////////////////////\n");
 	}
 
 	// specify data  32
-	
+
 	char my_quary[32][16];
 	char my_data[32768][16];
 
-	//send quary
+	// send quary
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (my_rank == 0)
 	{
@@ -154,9 +194,11 @@ int main(int argc, char *argv[])
 				to = 3;
 			MPI_Ssend(quary[i], 16, MPI_CHAR, to, 0, MPI_COMM_WORLD);
 		}
-		for(int i=0;i<32;i++){
-			for(int j=0;j<16;j++){
-				my_quary[i][j]=quary[i][j];
+		for (int i = 0; i < 32; i++)
+		{
+			for (int j = 0; j < 16; j++)
+			{
+				my_quary[i][j] = quary[i][j];
 			}
 		}
 	}
@@ -168,7 +210,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-
 	if (local_rank == 0)
 	{
 		for (int i = 0; i < 32; i++)
@@ -176,31 +217,28 @@ int main(int argc, char *argv[])
 			MPI_Ssend(my_quary[i], 16, MPI_CHAR, 1, 0, local_comm);
 			MPI_Ssend(my_quary[i], 16, MPI_CHAR, 2, 0, local_comm);
 			MPI_Ssend(my_quary[i], 16, MPI_CHAR, 3, 0, local_comm);
-			
 		}
-		
 	}
-	else {
+	else
+	{
 		for (int i = 0; i < 32; i++)
 		{
 			MPI_Recv(my_quary[i], 16, MPI_CHAR, 0, 0, local_comm, MPI_STATUS_IGNORE);
 		}
 	}
-	
-	//send data
+
+	// send data
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (my_rank == 0)
 	{
 		for (int i = 0; i < 131072; i++)
 		{
-			
+
 			MPI_Ssend(data[i], 16, MPI_CHAR, 1, 0, MPI_COMM_WORLD);
 			MPI_Ssend(data[i], 16, MPI_CHAR, 2, 0, MPI_COMM_WORLD);
 			MPI_Ssend(data[i], 16, MPI_CHAR, 3, 0, MPI_COMM_WORLD);
-			
 		}
-		
 	}
 	else if (my_rank == 1 || my_rank == 2 || my_rank == 3)
 	{
@@ -210,7 +248,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	//data distribution
+	// data distribution
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (local_rank == 0)
 	{
@@ -223,13 +261,15 @@ int main(int argc, char *argv[])
 				to = 3;
 			MPI_Ssend(data[i], 16, MPI_CHAR, to, 0, local_comm);
 		}
-		for(int i=0;i<32768;i++){
-			for(int j=0;j<16;j++){
-				my_data[i][j]=data[i][j];
+		for (int i = 0; i < 32768; i++)
+		{
+			for (int j = 0; j < 16; j++)
+			{
+				my_data[i][j] = data[i][j];
 			}
 		}
 	}
-	else 
+	else
 	{
 		for (int i = 0; i < 32768; i++)
 		{
@@ -237,22 +277,29 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	// printf("////////\n");
 
+	int my_ed[32][32768];
+	int idx = 0;
 
-	if (my_rank == 5 )
+	const char *word1;
+	const char *word2;
+	int len1;
+	int len2;
+
+#pragma omp parallel for num_threads(8) default(none) shared(my_ed, my_data, my_quary) private(word1, word2)
+	for (int i = 0; i < 32; i++)
 	{
-		for (int i = 0; i < 32768; i++)
+
+		for (int j = 0; j < 32768; j++)
 		{
-			printf("my idx = %d my val = %s my rank = %d\n", i, my_data[i], my_rank);
+			int d = distance(my_quary[i], 16, my_data[j], 16);
+			
+#pragma omp critical
+			my_ed[i][j] = d;
 		}
 	}
-	
-	/*
-	#pragma omp parallel num_threads(2)
-		{
-			//Hello(my_rank, comm_sz);
-		}
-	*/
+
 	/* Shut down MPI */
 	MPI_Finalize();
 

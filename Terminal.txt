@@ -1,6 +1,6 @@
  mpicc main.c -o ./a -fopenmp
- mpirun -np 4 ./a
  mpirun -oversubscribe -np 16 a -parallel
+ mpirun -np 4 ./a
 
  git push -u origin main
  git commit -m "note"
