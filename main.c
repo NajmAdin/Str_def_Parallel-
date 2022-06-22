@@ -129,10 +129,10 @@ int main(int argc, char *argv[])
 	if (my_rank == 0)
 	{
 		Gen();
-		for (int i = 0; i < 128; i++)
+	/*	for (int i = 0; i < 128; i++)
 		{
 			printf("%d- %s\n", i, quary[i]);
-		}
+		}*/
 		printf("////////////////////////\n");
 	}
 
@@ -169,7 +169,6 @@ int main(int argc, char *argv[])
 	}
 
 
-	//MPI_Barrier(local_comm);
 	if (local_rank == 0)
 	{
 		for (int i = 0; i < 32; i++)
@@ -188,17 +187,66 @@ int main(int argc, char *argv[])
 		}
 	}
 	
+	//send data
 
-
-
-	if (local_rank == 3 )
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (my_rank == 0)
 	{
-		for (int i = 0; i < 32; i++)
+		for (int i = 0; i < 131072; i++)
 		{
-			printf("my idx = %d my val = %s my rank = %d\n", i, my_quary[i], my_rank);
+			
+			MPI_Ssend(data[i], 16, MPI_CHAR, 1, 0, MPI_COMM_WORLD);
+			MPI_Ssend(data[i], 16, MPI_CHAR, 2, 0, MPI_COMM_WORLD);
+			MPI_Ssend(data[i], 16, MPI_CHAR, 3, 0, MPI_COMM_WORLD);
+			
+		}
+		
+	}
+	else if (my_rank == 1 || my_rank == 2 || my_rank == 3)
+	{
+		for (int i = 0; i < 131072; i++)
+		{
+			MPI_Recv(data[i], 16, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 	}
 
+	//data distribution
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (local_rank == 0)
+	{
+		for (int i = 32768; i < 131072; i++)
+		{
+			int to = 1;
+			if (i >= 65536 && i < 98304)
+				to = 2;
+			if (i >= 98304 && i < 131072)
+				to = 3;
+			MPI_Ssend(data[i], 16, MPI_CHAR, to, 0, local_comm);
+		}
+		for(int i=0;i<32768;i++){
+			for(int j=0;j<16;j++){
+				my_data[i][j]=data[i][j];
+			}
+		}
+	}
+	else 
+	{
+		for (int i = 0; i < 32768; i++)
+		{
+			MPI_Recv(my_data[i], 16, MPI_CHAR, 0, 0, local_comm, MPI_STATUS_IGNORE);
+		}
+	}
+
+
+
+	if (my_rank == 5 )
+	{
+		for (int i = 0; i < 32768; i++)
+		{
+			printf("my idx = %d my val = %s my rank = %d\n", i, my_data[i], my_rank);
+		}
+	}
+	
 	/*
 	#pragma omp parallel num_threads(2)
 		{
