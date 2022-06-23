@@ -64,6 +64,19 @@ static int distance(char *word1, int len1, char *word2, int len2)
 	return matrix[len1][len2];
 }
 
+static int intCompare(const void *p1, const void *p2)
+{
+	int int_a = *((int *)p1);
+	int int_b = *((int *)p2);
+
+	if (int_a == int_b)
+		return 0;
+	else if (int_a < int_b)
+		return -1;
+	else
+		return 1;
+}
+
 char data[131072][16];
 char quary[128][16];
 void Gen()
@@ -176,7 +189,9 @@ int main(int argc, char *argv[])
 		printf("////////////////////////\n");
 	}
 
+	
 	// specify data  32
+
 
 	char my_quary[32][16];
 	char my_data[32768][16];
@@ -209,6 +224,7 @@ int main(int argc, char *argv[])
 			MPI_Recv(my_quary[i], 16, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 	}
+	
 
 	if (local_rank == 0)
 	{
@@ -226,6 +242,7 @@ int main(int argc, char *argv[])
 			MPI_Recv(my_quary[i], 16, MPI_CHAR, 0, 0, local_comm, MPI_STATUS_IGNORE);
 		}
 	}
+	
 
 	// send data
 
@@ -276,6 +293,7 @@ int main(int argc, char *argv[])
 			MPI_Recv(my_data[i], 16, MPI_CHAR, 0, 0, local_comm, MPI_STATUS_IGNORE);
 		}
 	}
+	
 
 	// printf("////////\n");
 
@@ -287,23 +305,219 @@ int main(int argc, char *argv[])
 	int len1;
 	int len2;
 
-#pragma omp parallel for num_threads(8) default(none) shared(my_ed, my_data, my_quary) private(word1, word2)
+#pragma omp parallel for num_threads(8) default(none) shared(my_ed, my_data, my_quary) private(word1, word2) schedule(guided)
 	for (int i = 0; i < 32; i++)
 	{
 
 		for (int j = 0; j < 32768; j++)
 		{
 			int d = distance(my_quary[i], 16, my_data[j], 16);
-			
+
 #pragma omp critical
 			my_ed[i][j] = d;
 		}
 	}
 
+	
+	//////////////////////
+	////////sort//////////
+	//////////////////////
+
+#pragma omp parallel for num_threads(8) default(none) shared(my_ed) schedule(guided)
+	for (int i = 0; i < 32; i++)
+	{
+		qsort(my_ed[i], 32768, sizeof(int), intCompare);
+	}
+
+
+	int my_mx[32][10],my_mn[32][10];
+#pragma omp parallel for num_threads(8) default(none) shared(my_ed,my_mn,my_mx) schedule(guided)
+	for(int i=0;i<32;i++){
+		for(int j=0;j<10;j++){
+			my_mn[i][j]=my_ed[i][j];
+		}
+		for(int j=32767,k=0;j>32757,k<10;j--,k++){
+			my_mx[i][k]=my_ed[i][j];
+		}
+	}
+
+
+
+
+	int local_mx[32][40],local_mn[32][40];
+
+	// ed Ssend
+	MPI_Barrier(local_comm);
+	if (local_rank != 0)
+	{
+		for (int i = 0; i < 32; i++)
+		{
+			MPI_Ssend(my_mx[i], 10, MPI_INT, 0, 1, local_comm);
+			MPI_Ssend(my_mn[i], 10, MPI_INT, 0, 1, local_comm);
+
+		}
+		
+	}
+	else
+	{
+		for(int i=0;i<32;i++){
+			for(int j=0;j<10;j++){
+				local_mn[i][j]=my_mn[i][j];
+				local_mx[i][j]=my_mx[i][j];
+			}
+		}
+		int re_mx[10],re_mn[10];
+		for (int i = 0; i < 32; i++)
+		{
+			MPI_Recv(re_mx, 10, MPI_INT, 1, 1, local_comm, MPI_STATUS_IGNORE);
+			MPI_Recv(re_mn, 10, MPI_INT, 1, 1, local_comm, MPI_STATUS_IGNORE);
+
+			for(int j=10,k=0;j<20,k<10;k++,j++){
+				local_mx[i][j]=re_mx[k];
+				local_mn[i][j]=re_mn[k];
+			}
+
+
+
+			MPI_Recv(re_mx, 10, MPI_INT, 2, 1, local_comm, MPI_STATUS_IGNORE);
+			MPI_Recv(re_mn, 10, MPI_INT, 2, 1, local_comm, MPI_STATUS_IGNORE);
+
+			for(int j=20,k=0;j<30,k<10;k++,j++){
+				local_mx[i][j]=re_mx[k];
+				local_mn[i][j]=re_mn[k];
+			}
+
+
+
+			MPI_Recv(re_mx, 10, MPI_INT, 3, 1, local_comm, MPI_STATUS_IGNORE);
+			MPI_Recv(re_mn, 10, MPI_INT, 3, 1, local_comm, MPI_STATUS_IGNORE);
+
+			for(int j=30,k=0;j<40,k<10;k++,j++){
+				local_mx[i][j]=re_mx[k];
+				local_mn[i][j]=re_mn[k];
+			}
+	
+		}
+
+#pragma omp parallel for num_threads(8) default(none) shared(my_ed,local_mn,local_mx) schedule(guided)
+		for (int i = 0; i < 32; i++)
+		{
+			
+			qsort(&local_mn[i], 40, sizeof(int), intCompare);
+			qsort(&local_mx[i], 40, sizeof(int), intCompare);
+		}
+
+		
+
+	}
+
+
+	int all_mx[128][40],all_mn[128][40];
+
+	// ed all Ssend
+	MPI_Barrier(MPI_COMM_WORLD);
+	if (my_rank == 1 || my_rank == 2 || my_rank == 3)
+	{
+		for (int i = 0; i < 32; i++)
+		{
+			int tempv[10];
+			for(int j=0;j<10;j++){
+				tempv[j]=local_mx[i][j+30];
+			}
+			MPI_Ssend(tempv, 10, MPI_INT, 0, 1, MPI_COMM_WORLD);
+			MPI_Ssend(local_mn[i], 10, MPI_INT, 0, 1, MPI_COMM_WORLD);
+
+		}
+		
+	}
+	else if(my_rank==0)
+	{
+
+		for(int i=0;i<32;i++){
+			for(int j=0;j<10;j++){
+				all_mn[i][j]=local_mn[i][j];
+				all_mx[i][j]=local_mx[i][j];
+			}
+		}
+
+
+		int re_mx[10],re_mn[10];
+		for (int i = 0; i < 32; i++)
+		{
+			MPI_Recv(re_mx, 10, MPI_INT, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(re_mn, 10, MPI_INT, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+			for(int j=0;j<10;j++){
+				all_mx[i+32][j]=re_mx[j];
+				all_mn[i+32][j]=re_mn[j];
+			}
+		}
+		for(int i=0;i<32;i++){
+
+			MPI_Recv(re_mx, 10, MPI_INT, 2, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(re_mn, 10, MPI_INT, 2, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+			
+			for(int j=0;j<10;j++){
+				all_mx[i+64][j]=re_mx[j];
+				all_mn[i+64][j]=re_mn[j];
+			}
+		}
+
+		for(int i=0;i<32;i++){
+
+			MPI_Recv(re_mx, 10, MPI_INT, 3, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(re_mn, 10, MPI_INT, 3, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+			for(int j=0;j<10;j++){
+				all_mx[i+96][j]=re_mx[j];
+				all_mn[i+96][j]=re_mn[j];
+			}
+		}
+
+
+
+
+	}
+
+
+	// display
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(my_rank==0){
+		printf("\n\nresalt\n\n");
+
+		for(int i=0;i<128;i++){
+			
+			printf("\n\n");
+			for(int j=0;j<16;j++){
+				printf("%c",quary[i][j]);
+			}
+			printf(" :-\n\nmin :-\n");
+			for(int j=0;j<10;j++){
+				printf("%d ",all_mn[i][j]);
+
+			}
+			printf("\nmax :-\n");
+			for(int j=0;j<10;j++){
+				printf("%d ",all_mx[i][j]);
+
+			}
+		}
+
+	}
+
+	printf("\n");
+
+
+
+	
 	/* Shut down MPI */
 	MPI_Finalize();
 
 	// Ending of parallel region
+
+	//printf("////////////////////////\n");
+
 
 	return 0;
 }
