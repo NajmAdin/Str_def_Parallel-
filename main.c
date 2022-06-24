@@ -412,7 +412,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	int all_mx[128][40],all_mn[128][40];
+	int all_mx[128][10],all_mn[128][10];
 
 	// ed all Ssend
 	MPI_Barrier(MPI_COMM_WORLD);
