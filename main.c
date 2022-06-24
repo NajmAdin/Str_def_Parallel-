@@ -2,6 +2,13 @@
 // using C language
 
 // OpenMP header
+
+/*
+	Najm Adin Othman
+	CS 
+	162018184
+*/
+
 #define _CRT_SECURE_NO_WARNINGS
 #include <omp.h>
 #include <string.h>
